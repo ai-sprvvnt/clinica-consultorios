@@ -32,6 +32,10 @@ h1 {
   box-shadow: 2px 2px 5px rgba(0,0,0,0.1);
 }
 
+.consultorio.activo-ahora {
+  border: 2px solid #007bff;
+}
+
 .consultorio h3 {
   margin-top: 0;
 }
@@ -59,4 +63,36 @@ button:hover {
   .consultorio {
     width: 100%;
   }
+}
+
+.modal {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100vw; height: 100vh;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal.hidden {
+  display: none;
+}
+
+.modal-content {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 10px;
+  text-align: center;
+  min-width: 250px;
+}
+
+.modal-content input[type="time"] {
+  margin: 0.5rem 0;
+  padding: 0.5rem;
+  width: 90%;
+}
+
+.modal-buttons {
+  margin-top: 1rem;
 }

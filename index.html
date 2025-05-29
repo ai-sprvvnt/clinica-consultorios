@@ -11,8 +11,27 @@
   <div id="mensaje">Cargando datos...</div>
   <div id="lista"></div>
 
+  <!-- Modal para selección de horario -->
+  <div id="modal" class="modal hidden">
+    <div class="modal-content">
+      <h2>Selecciona horario</h2>
+      <label>Inicio:
+        <input type="time" id="hora-inicio" required>
+      </label>
+      <label>Fin:
+        <input type="time" id="hora-fin" required>
+      </label>
+      <div class="modal-buttons">
+        <button onclick="cerrarModal()">Cancelar</button>
+        <button id="confirmarHorario">Confirmar</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     const API_URL = 'https://script.google.com/macros/s/AKfycbwzKzFKPNr-civ5SvhJyjF3tBxzuRYo1tThPEaMoy2Z0CvxRwBjaWhWrZp3jjG3c2Cp/exec';
+    let consultorioActual = null;
+    let estadoActual = null;
 
     async function cargarConsultorios() {
       const mensaje = document.getElementById('mensaje');
@@ -27,15 +46,22 @@
         mensaje.textContent = '';
         data.forEach(consultorio => {
           const div = document.createElement('div');
-          div.className = 'consultorio ' + consultorio.Estado.toLowerCase();
+          const estado = (consultorio.Estado || 'Libre').toLowerCase();
+          div.className = 'consultorio ' + estado;
+
+          if (estaEnHorarioActual(consultorio.Horario)) {
+            div.classList.add('activo-ahora');
+          }
+
           div.innerHTML = `
             <h3>Consultorio ${consultorio.Consultorio}</h3>
-            <p>Estado: ${consultorio.Estado}</p>
+            <p>Estado: ${consultorio.Estado || '-'}</p>
             <p>Ocupado por: ${consultorio.OcupadoPor || '-'}</p>
             <p>Horario: ${consultorio.Horario || '-'}</p>
-            <button onclick="actualizarEstado(${consultorio.Consultorio}, 'Libre')">Libre</button>
-            <button onclick="actualizarEstado(${consultorio.Consultorio}, 'Ocupado')">Ocupado</button>
-            <button onclick="actualizarEstado(${consultorio.Consultorio}, 'Reservado')">Reservado</button>
+            <button onclick="abrirModal(${consultorio.Consultorio}, 'Ocupado')">Ocupado</button>
+            <button onclick="abrirModal(${consultorio.Consultorio}, 'Reservado')">Reservado</button>
+            <button onclick="actualizarEstado(${consultorio.Consultorio}, 'Libre', '', '')">Libre</button>
+            <button onclick="liberarConsultorio(${consultorio.Consultorio})">Limpiar</button>
           `;
           contenedor.appendChild(div);
         });
@@ -46,20 +72,47 @@
       }
     }
 
-    async function actualizarEstado(num, estado) {
-      const persona = prompt(`¿Quién cambia el estado a ${estado}?`);
-      if (!persona) return;
+    function estaEnHorarioActual(horarioStr) {
+      if (!horarioStr || !horarioStr.includes('-')) return false;
 
-      const horario = prompt(`¿En qué horario se usará? (ej. 16:00 - 19:00)`);
-      if (!horario) return;
+      const [inicio, fin] = horarioStr.split('-').map(h => h.trim());
+      const ahora = new Date();
+      const horaActual = ahora.getHours() + ahora.getMinutes() / 60;
 
-      // Validar formato HH:mm - HH:mm
-      const horarioRegex = /^([01]\d|2[0-3]):[0-5]\d\s*-\s*([01]\d|2[0-3]):[0-5]\d$/;
-      if (!horarioRegex.test(horario.trim())) {
-        alert('Formato inválido. Usa el formato HH:mm - HH:mm (ej. 14:00 - 17:30)');
+      const [hInicio, mInicio] = inicio.split(':').map(Number);
+      const [hFin, mFin] = fin.split(':').map(Number);
+
+      const horaInicio = hInicio + mInicio / 60;
+      const horaFin = hFin + mFin / 60;
+
+      return horaActual >= horaInicio && horaActual < horaFin;
+    }
+
+    function abrirModal(consultorio, estado) {
+      consultorioActual = consultorio;
+      estadoActual = estado;
+      document.getElementById('modal').classList.remove('hidden');
+    }
+
+    function cerrarModal() {
+      document.getElementById('modal').classList.add('hidden');
+    }
+
+    document.getElementById('confirmarHorario').addEventListener('click', () => {
+      const inicio = document.getElementById('hora-inicio').value;
+      const fin = document.getElementById('hora-fin').value;
+      if (!inicio || !fin) {
+        alert('Debes seleccionar ambas horas');
         return;
       }
+      const horario = `${inicio} - ${fin}`;
+      const persona = prompt(`¿Quién cambia el estado a ${estadoActual}?`);
+      if (!persona) return;
+      cerrarModal();
+      actualizarEstado(consultorioActual, estadoActual, persona, horario);
+    });
 
+    async function actualizarEstado(num, estado, persona, horario) {
       try {
         const response = await fetch(API_URL, {
           method: 'POST',
@@ -67,16 +120,14 @@
             Consultorio: num,
             Estado: estado,
             OcupadoPor: persona,
-            Horario: horario.trim()
+            Horario: horario
           })
         });
 
         const result = await response.json();
-
         if (!result.success) {
           alert('Error al actualizar: ' + (result.error || 'desconocido'));
         } else {
-          alert('Estado actualizado correctamente');
           cargarConsultorios();
         }
 
@@ -84,6 +135,10 @@
         alert('Error de red al actualizar el consultorio');
         console.error(e);
       }
+    }
+
+    async function liberarConsultorio(num) {
+      await actualizarEstado(num, 'Libre', '', '');
     }
 
     cargarConsultorios();
