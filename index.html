@@ -32,6 +32,7 @@
             <h3>Consultorio ${consultorio.Consultorio}</h3>
             <p>Estado: ${consultorio.Estado}</p>
             <p>Ocupado por: ${consultorio.OcupadoPor || '-'}</p>
+            <p>Horario: ${consultorio.Horario || '-'}</p>
             <button onclick="actualizarEstado(${consultorio.Consultorio}, 'Libre')">Libre</button>
             <button onclick="actualizarEstado(${consultorio.Consultorio}, 'Ocupado')">Ocupado</button>
             <button onclick="actualizarEstado(${consultorio.Consultorio}, 'Reservado')">Reservado</button>
@@ -49,13 +50,17 @@
       const persona = prompt(`¿Quién cambia el estado a ${estado}?`);
       if (!persona) return;
 
+      const horario = prompt(`¿En qué horario se usará? (ej. 16:00 - 19:00)`);
+      if (!horario) return;
+
       try {
         const response = await fetch(API_URL, {
-          method: 'POST',
+          method: 'POST,
           body: JSON.stringify({
             Consultorio: num,
             Estado: estado,
-            OcupadoPor: persona
+            OcupadoPor: persona,
+            Horario: horario
           })
         });
 
