@@ -96,3 +96,5 @@ button:hover {
 .modal-buttons {
   margin-top: 1rem;
 }
+
+.modal.hidden { display: none; }

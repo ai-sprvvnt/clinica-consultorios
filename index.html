@@ -45,6 +45,8 @@
 
         mensaje.textContent = '';
         data.forEach(consultorio => {
+          if (!consultorio.Consultorio) return; // saltar filas vacías
+
           const div = document.createElement('div');
           const estado = (consultorio.Estado || 'Libre').toLowerCase();
           div.className = 'consultorio ' + estado;
@@ -55,7 +57,7 @@
 
           div.innerHTML = `
             <h3>Consultorio ${consultorio.Consultorio}</h3>
-            <p>Estado: ${consultorio.Estado || '-'}</p>
+            <p>Estado: ${consultorio.Estado || 'Libre'}</p>
             <p>Ocupado por: ${consultorio.OcupadoPor || '-'}</p>
             <p>Horario: ${consultorio.Horario || '-'}</p>
             <button onclick="abrirModal(${consultorio.Consultorio}, 'Ocupado')">Ocupado</button>
