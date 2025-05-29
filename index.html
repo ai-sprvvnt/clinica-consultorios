@@ -74,8 +74,7 @@
           let estado = calcularEstado(c);
           div.className = 'consultorio ' + estado.toLowerCase();
 
-          const mostrar = tipo => (c[tipo + 'Horarios'] || '').split(/
-|, */).filter(x => x.trim()).map(h => `<li>${h}</li>`).join('');
+          const mostrar = tipo => (c[tipo + 'Horarios'] || '').split(/\\n|, */).filter(x => x.trim()).map(h => `<li>${h}</li>`).join('');
           div.innerHTML = `
             <h3>Consultorio ${c.Consultorio}</h3>
             <p><strong>Ocupado por:</strong> ${c.OcupadoPor || '-'}</p>
