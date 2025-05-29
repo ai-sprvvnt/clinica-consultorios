@@ -14,50 +14,78 @@
     .libre { background-color: #e0ffe0; }
     .ocupado { background-color: #ffe0e0; }
     .reservado { background-color: #fff8c6; }
+    .cargando {
+      font-style: italic;
+      color: gray;
+    }
   </style>
 </head>
 <body>
   <h1>Consultorios</h1>
+  <div id="mensaje" class="cargando">Cargando datos...</div>
   <div id="lista"></div>
 
   <script>
-    const API_URL = 'https://script.google.com/macros/s/AKfycby7Eu_zZeCRnQJGZX357PQDw-nLLjY0xGIx-jntHC-wulWNIQE0JxBQKJWPOOhXrRFKQw/exec';
+    const API_URL = 'https://script.google.com/macros/s/AKfycbytZbq9vGOODEHZUFpZUiphyKQrUrUVKSed4yIJDr1Z-kC3DhZRUBGM4zBopMDykhCe8Q/exec';
 
     async function cargarConsultorios() {
-      const res = await fetch(API_URL);
-      const data = await res.json();
-
+      const mensaje = document.getElementById('mensaje');
       const contenedor = document.getElementById('lista');
+      mensaje.textContent = 'Cargando datos...';
       contenedor.innerHTML = '';
 
-      data.forEach(consultorio => {
-        const div = document.createElement('div');
-        div.className = 'consultorio ' + consultorio.Estado.toLowerCase();
-        div.innerHTML = `
-          <h3>Consultorio ${consultorio.Consultorio}</h3>
-          <p>Estado: ${consultorio.Estado}</p>
-          <p>Ocupado por: ${consultorio.OcupadoPor || '-'}</p>
-          <button onclick="actualizarEstado(${consultorio.Consultorio}, 'Libre')">Libre</button>
-          <button onclick="actualizarEstado(${consultorio.Consultorio}, 'Ocupado')">Ocupado</button>
-          <button onclick="actualizarEstado(${consultorio.Consultorio}, 'Reservado')">Reservado</button>
-        `;
-        contenedor.appendChild(div);
-      });
+      try {
+        const res = await fetch(API_URL);
+        const data = await res.json();
+
+        mensaje.textContent = '';
+        data.forEach(consultorio => {
+          const div = document.createElement('div');
+          div.className = 'consultorio ' + consultorio.Estado.toLowerCase();
+          div.innerHTML = `
+            <h3>Consultorio ${consultorio.Consultorio}</h3>
+            <p>Estado: ${consultorio.Estado}</p>
+            <p>Ocupado por: ${consultorio.OcupadoPor || '-'}</p>
+            <button onclick="actualizarEstado(${consultorio.Consultorio}, 'Libre')">Libre</button>
+            <button onclick="actualizarEstado(${consultorio.Consultorio}, 'Ocupado')">Ocupado</button>
+            <button onclick="actualizarEstado(${consultorio.Consultorio}, 'Reservado')">Reservado</button>
+          `;
+          contenedor.appendChild(div);
+        });
+
+      } catch (e) {
+        mensaje.textContent = 'Error al cargar datos';
+        console.error('Error al cargar:', e);
+      }
     }
 
     async function actualizarEstado(num, estado) {
       const persona = prompt(`¿Quién cambia el estado a ${estado}?`);
       if (!persona) return;
 
-      await fetch(API_URL, {
-        method: 'POST',
-        body: JSON.stringify({
-          Consultorio: num,
-          Estado: estado,
-          OcupadoPor: persona
-        })
-      });
-      cargarConsultorios();
+      try {
+        const response = await fetch(API_URL, {
+          method: 'POST',
+          body: JSON.stringify({
+            Consultorio: num,
+            Estado: estado,
+            OcupadoPor: persona
+          })
+        });
+
+        const result = await response.json();
+
+        if (!result.success) {
+          alert('Error al actualizar: ' + (result.error || 'desconocido'));
+        } else {
+          alert('Estado actualizado correctamente');
+          cargarConsultorios();
+        }
+
+      } catch (e) {
+        alert('Error de red al actualizar el consultorio');
+        console.error(e);
+      }
     }
 
     cargarConsultorios();
