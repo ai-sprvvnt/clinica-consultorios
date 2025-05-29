@@ -53,14 +53,21 @@
       const horario = prompt(`¿En qué horario se usará? (ej. 16:00 - 19:00)`);
       if (!horario) return;
 
+      // Validar formato HH:mm - HH:mm
+      const horarioRegex = /^([01]\d|2[0-3]):[0-5]\d\s*-\s*([01]\d|2[0-3]):[0-5]\d$/;
+      if (!horarioRegex.test(horario.trim())) {
+        alert('Formato inválido. Usa el formato HH:mm - HH:mm (ej. 14:00 - 17:30)');
+        return;
+      }
+
       try {
         const response = await fetch(API_URL, {
-          method: 'POST'
+          method: 'POST',
           body: JSON.stringify({
             Consultorio: num,
             Estado: estado,
             OcupadoPor: persona,
-            Horario: horario
+            Horario: horario.trim()
           })
         });
 
