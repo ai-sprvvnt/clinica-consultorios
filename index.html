@@ -24,25 +24,34 @@
     const API_URL = 'https://script.google.com/macros/s/AKfycbytZbq9vGOODEHZUFpZUiphyKQrUrUVKSed4yIJDr1Z-kC3DhZRUBGM4zBopMDykhCe8Q/exec';
 
     async function cargarConsultorios() {
-      const res = await fetch(API_URL);
-      const data = await res.json();
+  const res = await fetch(API_URL);
+  const data = await res.json();
 
-      const contenedor = document.getElementById('lista');
-      contenedor.innerHTML = '';
+  const contenedor = document.getElementById('lista');
+  contenedor.innerHTML = '';
 
-      data.forEach(consultorio => {
-        const div = document.createElement('div');
-        div.className = 'consultorio ' + consultorio.Estado.toLowerCase();
-        div.innerHTML = `
-          <h3>Consultorio ${consultorio.Consultorio}</h3>
-          <p>Estado: ${consultorio.Estado}</p>
-          <p>Ocupado por: ${consultorio.OcupadoPor || '-'}</p>
-          <button onclick="actualizarEstado(${consultorio.Consultorio}, 'Libre')">Libre</button>
-          <button onclick="actualizarEstado(${consultorio.Consultorio}, 'Ocupado')">Ocupado</button>
-          <button onclick="actualizarEstado(${consultorio.Consultorio}, 'Reservado')">Reservado</button>
-        `;
-        contenedor.appendChild(div);
-      });
+  data.forEach(consultorio => {
+    if (!consultorio.Consultorio) return;
+    const div = document.createElement('div');
+    const estado = calcularEstado(consultorio) || 'Libre';
+    div.className = 'consultorio ' + estado.toLowerCase();
+    const mostrar = tipo => (consultorio[tipo + 'Horarios'] || '').split(/
+|, */).filter(x => x.trim()).map(h => `<li>${h}</li>`).join('');
+    div.innerHTML = `
+      <h3>Consultorio ${consultorio.Consultorio}</h3>
+      <p>Estado: ${estado}</p>
+      <p>Ocupado por: ${consultorio.OcupadoPor || '-'}</p>
+      <ul>
+        ${mostrar('Ocupado')}
+        ${mostrar('Reservado')}
+      </ul>
+      <button onclick="actualizarEstado(${consultorio.Consultorio}, 'Libre')">Liberar</button>
+      <button onclick="actualizarEstado(${consultorio.Consultorio}, 'Ocupado')">Ocupar</button>
+      <button onclick="actualizarEstado(${consultorio.Consultorio}, 'Reservado')">Reservar</button>
+    `;
+    contenedor.appendChild(div);
+  });
+});
     }
 
     async function actualizarEstado(num, estado) {
