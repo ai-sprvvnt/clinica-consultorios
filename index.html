@@ -1,169 +1,63 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="UTF-8">
   <title>Estado de Consultorios</title>
-  <link rel="stylesheet" href="style.css" />
+  <style>
+    .consultorio {
+      border: 1px solid #ccc;
+      margin: 10px;
+      padding: 10px;
+      border-radius: 8px;
+      width: 200px;
+    }
+    .libre { background-color: #e0ffe0; }
+    .ocupado { background-color: #ffe0e0; }
+    .reservado { background-color: #fff8c6; }
+  </style>
 </head>
 <body>
   <h1>Consultorios</h1>
-  <div id="mensaje">Cargando datos...</div>
   <div id="lista"></div>
 
-  <!-- Modal -->
-  <div id="modal" class="modal hidden">
-    <div class="modal-content">
-      <h2>Selecciona horario</h2>
-      <label>Inicio: <select id="hora-inicio">
-        <option value="08:00">08:00</option>
-        <option value="09:00">09:00</option>
-        <option value="10:00">10:00</option>
-        <option value="11:00">11:00</option>
-        <option value="12:00">12:00</option>
-        <option value="13:00">13:00</option>
-        <option value="14:00">14:00</option>
-        <option value="15:00">15:00</option>
-        <option value="16:00">16:00</option>
-        <option value="17:00">17:00</option>
-        <option value="18:00">18:00</option>
-        <option value="19:00">19:00</option>
-        <option value="20:00">20:00</option>
-      </select></label>
-      <label>Fin: <select id="hora-fin">
-        <option value="08:00">08:00</option>
-        <option value="09:00">09:00</option>
-        <option value="10:00">10:00</option>
-        <option value="11:00">11:00</option>
-        <option value="12:00">12:00</option>
-        <option value="13:00">13:00</option>
-        <option value="14:00">14:00</option>
-        <option value="15:00">15:00</option>
-        <option value="16:00">16:00</option>
-        <option value="17:00">17:00</option>
-        <option value="18:00">18:00</option>
-        <option value="19:00">19:00</option>
-        <option value="20:00">20:00</option>
-      </select></label>
-      <div class="modal-buttons">
-        <button onclick="cerrarModal()">Cancelar</button>
-        <button id="confirmarHorario">Confirmar</button>
-      </div>
-    </div>
-  </div>
-
   <script>
-    const API_URL = 'https://script.google.com/macros/s/AKfycbwFiNnELztqrm_BV_TE0fEHL11q-hsWKfKLMNNOqFk2a1rRiwEZFnnTGsfeddMcV6E2tg/exec';
-    let consultorioActual = null;
-    let estadoActual = null;
+    const API_URL = 'https://script.google.com/macros/s/AKfycbytZbq9vGOODEHZUFpZUiphyKQrUrUVKSed4yIJDr1Z-kC3DhZRUBGM4zBopMDykhCe8Q/exec';
 
     async function cargarConsultorios() {
-      const mensaje = document.getElementById('mensaje');
+      const res = await fetch(API_URL);
+      const data = await res.json();
+
       const contenedor = document.getElementById('lista');
-      mensaje.textContent = 'Cargando datos...';
       contenedor.innerHTML = '';
 
-      try {
-        const res = await fetch(API_URL);
-        const data = await res.json();
-        mensaje.textContent = '';
-
-        data.forEach(c => {
-          if (!c.Consultorio) return;
-          const div = document.createElement('div');
-          let estado = calcularEstado(c);
-          div.className = 'consultorio ' + estado.toLowerCase();
-
-          const mostrar = tipo => (c[tipo + 'Horarios'] || '').split(/\\n|, */).filter(x => x.trim()).map(h => `<li>${h}</li>`).join('');
-          div.innerHTML = `
-            <h3>Consultorio ${c.Consultorio}</h3>
-            <p><strong>Ocupado por:</strong> ${c.OcupadoPor || '-'}</p>
-            <p><strong>Actualizado:</strong> ${c.UltimaActualizacion || '-'}</p>
-            <div><strong>Ocupado:</strong><ul>${mostrar('Ocupado')}</ul></div>
-            <div><strong>Reservado:</strong><ul>${mostrar('Reservado')}</ul></div>
-            <button onclick="abrirModal(${c.Consultorio}, 'Ocupado')">Ocupar</button>
-            <button onclick="abrirModal(${c.Consultorio}, 'Reservado')">Reservar</button>
-            <button onclick="liberarConsultorio(${c.Consultorio})">Liberar</button>
-          `;
-          contenedor.appendChild(div);
-        });
-      } catch (e) {
-        mensaje.textContent = 'Error al cargar datos';
-        console.error(e);
-      }
-    }
-
-    function calcularEstado(c) {
-      const ahora = new Date();
-      const t = ahora.getHours() + ahora.getMinutes()/60;
-      const match = (lista) => (lista || '').split(/
-|, */).some(r => {
-        const [inicio, fin] = r.split('-').map(s => s.trim());
-        if (!inicio || !fin) return false;
-        const [hi, mi] = inicio.split(':').map(Number);
-        const [hf, mf] = fin.split(':').map(Number);
-        const ti = hi + mi/60;
-        const tf = hf + mf/60;
-        return t >= ti && t < tf;
+      data.forEach(consultorio => {
+        const div = document.createElement('div');
+        div.className = 'consultorio ' + consultorio.Estado.toLowerCase();
+        div.innerHTML = `
+          <h3>Consultorio ${consultorio.Consultorio}</h3>
+          <p>Estado: ${consultorio.Estado}</p>
+          <p>Ocupado por: ${consultorio.OcupadoPor || '-'}</p>
+          <button onclick="actualizarEstado(${consultorio.Consultorio}, 'Libre')">Libre</button>
+          <button onclick="actualizarEstado(${consultorio.Consultorio}, 'Ocupado')">Ocupado</button>
+          <button onclick="actualizarEstado(${consultorio.Consultorio}, 'Reservado')">Reservado</button>
+        `;
+        contenedor.appendChild(div);
       });
-      if (match(c.OcupadoHorarios)) return 'Ocupado';
-      if (match(c.ReservadoHorarios)) return 'Reservado';
-      return 'Libre';
     }
 
-    function abrirModal(num, estado) {
-      consultorioActual = num;
-      estadoActual = estado;
-      document.getElementById('modal').classList.remove('hidden');
-    }
-
-    function cerrarModal() {
-      document.getElementById('modal').classList.add('hidden');
-    }
-
-    document.getElementById('confirmarHorario').addEventListener('click', () => {
-      const inicio = document.getElementById('hora-inicio').value;
-      const fin = document.getElementById('hora-fin').value;
-      if (!inicio || !fin) {
-        alert('Selecciona ambas horas');
-        return;
-      }
-      if (fin <= inicio) {
-        alert('La hora final debe ser mayor que la inicial');
-        return;
-      }
-      const horario = `${inicio} - ${fin}`;
-      const persona = prompt(`¿Quién registra el consultorio como ${estadoActual}?`);
+    async function actualizarEstado(num, estado) {
+      const persona = prompt(`¿Quién cambia el estado a ${estado}?`);
       if (!persona) return;
-      cerrarModal();
-      actualizarEstado(consultorioActual, estadoActual, persona, horario);
-    });
 
-    async function actualizarEstado(num, tipo, persona, horario) {
-      const payload = {
-        Consultorio: num,
-        Tipo: tipo,
-        OcupadoPor: persona,
-        Horario: horario
-      };
-      try {
-        const res = await fetch(API_URL, {
-          method: 'POST',
-          body: JSON.stringify(payload)
-        });
-        const result = await res.json();
-        if (result.success) {
-          cargarConsultorios();
-        } else {
-          alert('Error al actualizar');
-        }
-      } catch (e) {
-        console.error(e);
-      }
-    }
-
-    async function liberarConsultorio(num) {
-      await actualizarEstado(num, 'Liberar', '', '');
+      await fetch(API_URL, {
+        method: 'POST',
+        body: JSON.stringify({
+          Consultorio: num,
+          Estado: estado,
+          OcupadoPor: persona
+        })
+      });
+      cargarConsultorios();
     }
 
     cargarConsultorios();
