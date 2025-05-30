@@ -1,7 +1,7 @@
 :root {
-  --libre: #388e3c;      /* Verde medio */
-  --ocupado: #d32f2f;    /* Rojo fuerte */
-  --reservado: #fbc02d;  /* Amarillo oscuro */
+  --libre: #388e3c;
+  --ocupado: #d32f2f;
+  --reservado: #fbc02d;
   --text-dark: #212121;
   --text-light: #f5f5f5;
   --bg-dark: #121212;
@@ -51,9 +51,12 @@ h1 {
 
 .card p, .card strong {
   color: inherit;
+  word-break: break-word;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
-/* Estados con colores y contraste */
+/* Estados */
 .card.ocupado {
   background-color: var(--ocupado);
   color: white;
@@ -69,7 +72,6 @@ h1 {
   color: white;
 }
 
-/* Botones */
 .botones {
   margin-top: 15px;
   display: flex;
@@ -101,7 +103,7 @@ button svg {
   height: 16px;
 }
 
-/* Responsive diseño para móvil */
+/* Responsive */
 @media screen and (max-width: 600px) {
   body {
     margin: 10px;
@@ -124,8 +126,9 @@ button svg {
     font-size: 1.2em;
   }
 
-  .botones {
-    flex-direction: column;
+  .card p {
+    font-size: 0.9em;
+    margin: 6px 0;
   }
 
   button {
@@ -133,40 +136,68 @@ button svg {
     font-size: 1em;
   }
 
-  /* Forzar que el contenido se ajuste en pantallas pequeñas */
-.card p, .card strong {
-  word-break: break-word;
-  white-space: normal;
-  overflow-wrap: anywhere;
-}
-
-/* Ajustes extra para tarjetas responsivas */
-@media screen and (max-width: 600px) {
-  .card {
-    padding: 12px;
-    font-size: 0.95em;
-  }
-
-  .card h2 {
-    font-size: 1em;
-    line-height: 1.2;
-  }
-
-  .card p {
-    font-size: 0.9em;
-    margin: 6px 0;
-  }
-
-  button {
-    font-size: 0.9em;
-    padding: 6px 10px;
-  }
-
   .botones {
-    gap: 6px;
+    flex-direction: column;
   }
 }
 
-
-
+/* MODALES */
+.modal {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+}
+.modal.hidden {
+  display: none;
+}
+.modal-content {
+  background: #f9f9f9;
+  padding: 20px;
+  border-radius: 10px;
+  width: 90%;
+  max-width: 400px;
+  color: #222;
+}
+.modal-content h3 {
+  margin-top: 0;
+  font-size: 1.2em;
+  color: #333;
+}
+.modal-content label {
+  display: block;
+  margin-top: 10px;
+  font-size: 0.95em;
+}
+.modal-content input,
+.modal-content select {
+  width: 100%;
+  padding: 8px;
+  margin-top: 5px;
+  border-radius: 5px;
+  border: 1px solid #ccc;
+  background-color: white;
+  color: #000;
+}
+.modal-buttons {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 15px;
+}
+.modal-buttons button {
+  flex: 1;
+  margin: 0 5px;
+  padding: 10px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  background-color: var(--btn-color);
+  color: white;
+  font-weight: bold;
+}
+.modal-buttons button:hover {
+  background-color: var(--btn-hover);
 }

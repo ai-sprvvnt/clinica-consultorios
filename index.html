@@ -11,7 +11,7 @@
   <div id="consultorios" class="grid"></div>
 
   <script>
-    const API_URL = 'https://script.google.com/macros/s/AKfycbyjIsv-kp3WtlRs9WFyapI3ry0E3i1puhwAOf7XAH52kOJHjEwMMcsHvWx3TP39-Z72Sw/exec'; // Reemplaza con tu URL real
+    const API_URL = 'https://script.google.com/macros/s/AKfycbzzbepWa4c25eEu6tMv35VkHpk9Pm24qUFsPO6zd_VBNoNT7vz3tk88A-fuWVqOj6gmYg/exec'; // Reemplaza con tu URL real
 
     function formatoHora12(date) {
       let horas = date.getHours();
@@ -46,73 +46,72 @@
         const data = await res.json();
 
         container.innerHTML = '';
-        for (const item of data) {
-        const estado = item.Estado?.toLowerCase() || 'libre';
 
-        // Comprobación de auto-liberación
-        if (estado === 'ocupado' && item.OcupadoHorarios) {
+        for (const item of data) {
+          const estado = item.Estado?.toLowerCase() || 'libre';
+
+          // Auto-liberación si el horario terminó
+          if (estado === 'ocupado' && item.OcupadoHorarios) {
             const partes = item.OcupadoHorarios.split('-');
             if (partes.length === 2) {
-            const horaFinStr = partes[1].trim(); // Ej. "16:00"
-            const [h, m] = horaFinStr.split(':').map(Number);
-            const fin = new Date();
-            fin.setHours(h, m, 0, 0);
+              const horaFinStr = partes[1].trim();
+              const [h, m] = horaFinStr.split(':').map(Number);
+              const fin = new Date();
+              fin.setHours(h, m, 0, 0);
 
-            const ahora = new Date();
-            if (ahora > fin) {
-                // El horario expiró, liberar automáticamente
+              const ahora = new Date();
+              if (ahora > fin) {
                 await enviarEstado(item.Consultorio, 'Libre', '', '');
-                continue; // Saltar la renderización para que recargue limpio
+                continue;
+              }
             }
-            }
-        }
+          }
 
-        const card = document.createElement('div');
-        card.className = `card ${estado}`;
+          const card = document.createElement('div');
+          card.className = `card ${estado}`;
 
-        let fechaTexto = '-';
-        if (item.ÚltimaActualización) {
+          let fechaTexto = '-';
+          if (item.ÚltimaActualización) {
             const fecha = new Date(item.ÚltimaActualización);
             const fechaLocal = fecha.toLocaleDateString();
             const horaLocal = formatoHora12(fecha);
             fechaTexto = `${fechaLocal} ${horaLocal}`;
-        }
+          }
 
-        let horario = item.OcupadoHorarios || item.ReservadoHorarios || '-';
-        if (horario.includes(':') && horario.includes('-')) {
+          let horario = item.OcupadoHorarios || item.ReservadoHorarios || '-';
+          if (horario.includes(':') && horario.includes('-')) {
             horario = convertirHorario24a12(horario);
-        }
+          }
 
-        let botonesHTML = `
+          let botonesHTML = `
             <button onclick="ocuparConsultorio(${item.Consultorio})">
-            <i data-lucide="user-check"></i> Ocupar
+              <i data-lucide="user-check"></i> Ocupar
             </button>
             <button onclick="reservarConsultorio(${item.Consultorio})">
-            <i data-lucide="calendar-plus"></i> Reservar
+              <i data-lucide="calendar-plus"></i> Reservar
             </button>
-        `;
+          `;
 
-        if (estado !== 'libre') {
+          if (estado !== 'libre') {
             botonesHTML += `
-            <button onclick="liberarConsultorio(${item.Consultorio})">
+              <button onclick="liberarConsultorio(${item.Consultorio})">
                 <i data-lucide="x-circle"></i> Liberar
-            </button>`;
-        }
+              </button>`;
+          }
 
-        card.innerHTML = `
+          card.innerHTML = `
             <h2>Consultorio ${item.Consultorio}</h2>
             <p><strong>Estado:</strong> ${item.Estado || 'Libre'}</p>
             <p><strong>Ocupado por:</strong> ${item.OcupadoPor || '-'}</p>
             <p><strong>Última actualización:</strong> ${fechaTexto}</p>
             <p><strong>Horario:</strong> ${horario}</p>
             <div class="botones">${botonesHTML}</div>
-        `;
+          `;
 
-        container.appendChild(card);
+          container.appendChild(card);
         }
 
-        lucide.createIcons(); // Renderizar íconos
-
+        lucide.createIcons();
       } catch (err) {
         container.innerHTML = '<p>Error al cargar datos.</p>';
         console.error(err);
@@ -135,7 +134,6 @@
       inicioRedondeado.setMinutes(0, 0, 0);
 
       const fin = new Date(inicioRedondeado.getTime() + duracion * 60 * 60 * 1000);
-
       const hIni = inicioRedondeado.toTimeString().slice(0, 5);
       const hFin = fin.toTimeString().slice(0, 5);
       const horario = `${hIni} - ${hFin}`;
@@ -147,15 +145,28 @@
       const persona = prompt('¿Quién va a reservar el consultorio?');
       if (!persona) return;
 
-      const horario = prompt('¿Horario a reservar? (formato HH:mm - HH:mm)');
-      const horarioRegex = /^([01]\d|2[0-3]):[0-5]\d\s*-\s*([01]\d|2[0-3]):[0-5]\d$/;
-
-      if (!horarioRegex.test(horario.trim())) {
-        alert('Formato inválido. Usa HH:mm - HH:mm');
+      const inicio = prompt('¿Hora de inicio? (formato HH:mm, ej. 14:00)');
+      const horaRegex = /^([01]\d|2[0-3]):[0-5]\d$/;
+      if (!horaRegex.test(inicio.trim())) {
+        alert('Formato inválido. Usa HH:mm (ej. 13:00)');
         return;
       }
 
-      await enviarEstado(num, 'Reservado', persona, horario.trim());
+      const duracion = prompt('¿Por cuántas horas? (1, 2 o 3)');
+      const horas = parseInt(duracion);
+      if (![1, 2, 3].includes(horas)) {
+        alert('Duración inválida. Usa 1, 2 o 3');
+        return;
+      }
+
+      const [h, m] = inicio.split(':').map(Number);
+      const d1 = new Date(); d1.setHours(h, m, 0, 0);
+      const d2 = new Date(d1.getTime() + horas * 60 * 60 * 1000);
+      const hIni = d1.toTimeString().slice(0, 5);
+      const hFin = d2.toTimeString().slice(0, 5);
+      const horario = `${hIni} - ${hFin}`;
+
+      await enviarEstado(num, 'Reservado', persona, horario);
     }
 
     async function liberarConsultorio(num) {
@@ -180,7 +191,6 @@
         } else {
           cargarConsultorios();
         }
-
       } catch (e) {
         alert('Error de red al actualizar');
         console.error(e);
@@ -190,4 +200,75 @@
     cargarConsultorios();
   </script>
 </body>
+
+<!-- Agrega esto dentro del <body>, al final del index.html -->
+<div id="modalReserva" class="modal hidden">
+  <div class="modal-content">
+    <h3>Reservar Consultorio</h3>
+    <label>Nombre:
+      <input type="text" id="reservaNombre" placeholder="Tu nombre">
+    </label>
+    <label>Hora de inicio:
+      <select id="reservaHora">
+        <option value="08:00">08:00</option>
+        <option value="09:00">09:00</option>
+        <option value="10:00">10:00</option>
+        <option value="11:00">11:00</option>
+        <option value="12:00">12:00</option>
+        <option value="13:00">13:00</option>
+        <option value="14:00">14:00</option>
+        <option value="15:00">15:00</option>
+        <option value="16:00">16:00</option>
+        <option value="17:00">17:00</option>
+        <option value="18:00">18:00</option>
+        <option value="19:00">19:00</option>
+      </select>
+    </label>
+    <label>Duración:
+      <select id="reservaDuracion">
+        <option value="1">1 hora</option>
+        <option value="2">2 horas</option>
+        <option value="3">3 horas</option>
+      </select>
+    </label>
+    <div class="modal-buttons">
+      <button onclick="confirmarReserva()">Confirmar</button>
+      <button onclick="cerrarModal()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let consultorioReservaActual = null;
+
+function reservarConsultorio(num) {
+  consultorioReservaActual = num;
+  document.getElementById("modalReserva").classList.remove("hidden");
+}
+
+function cerrarModal() {
+  document.getElementById("modalReserva").classList.add("hidden");
+  consultorioReservaActual = null;
+}
+
+async function confirmarReserva() {
+  const persona = document.getElementById("reservaNombre").value.trim();
+  const horaInicio = document.getElementById("reservaHora").value;
+  const duracion = parseInt(document.getElementById("reservaDuracion").value);
+
+  if (!persona) return alert("Ingresa tu nombre");
+
+  const [h, m] = horaInicio.split(":").map(Number);
+  const d1 = new Date(); d1.setHours(h, m, 0, 0);
+  const d2 = new Date(d1.getTime() + duracion * 60 * 60 * 1000);
+  const hIni = d1.toTimeString().slice(0, 5);
+  const hFin = d2.toTimeString().slice(0, 5);
+  const horario = `${hIni} - ${hFin}`;
+
+  await enviarEstado(consultorioReservaActual, 'Reservado', persona, horario);
+  cerrarModal();
+}
+</script>
+
+
 </html>
