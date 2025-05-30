@@ -1,99 +1,80 @@
-<!-- index.html -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Estado de Consultorios</title>
+  <title>Consultorios (JSONP)</title>
   <link rel="stylesheet" href="style.css">
   <script>
-    // === PON AQUÍ LA URL DE TU WEBAPP PUBLICADA ===
-    const API_URL = 'https://script.google.com/macros/s/AKfycbwmEt0-HaELEqqwcVK3oFjg_r_Xok95O6fsqwe9wIlzSOcqAR1W0FHqJWuimS9seHJLxA/exec';
+    const API_URL = 'https://script.google.com/macros/s/AKfycbwBBGfDXkPizYzt_wr6sDnhEUPyyw4FvdhBv1yKhlf5tNYmrt4VMe86mAn_451NUTHiiQ/exec';
 
-    // Determina si está ocupado o reservado, o libre
     function calcularEstado(c) {
-      if ((c.ReservadoHorarios || '').trim()) return 'Reservado';
-      if ((c.OcupadoHorarios  || '').trim()) return 'Ocupado';
+      if ((c.ReservadoHorarios||'').trim()) return 'Reservado';
+      if ((c.OcupadoHorarios ||'').trim()) return 'Ocupado';
       return 'Libre';
     }
 
-    // Carga y dibuja todas las tarjetas de consultorios
-    async function cargarConsultorios() {
-      try {
-        const res  = await fetch(API_URL);
-        const data = await res.json();
-
+    // JSONP para listar
+    function cargarConsultorios() {
+      window.listCB = function(data) {
+        document.getElementById('mensaje').textContent = '';
         const cont = document.getElementById('lista');
         cont.innerHTML = '';
-
         data.forEach(c => {
-          const estado = calcularEstado(c);
-          const tarjeta = document.createElement('div');
-          tarjeta.classList.add('consultorio', estado.toLowerCase());
-          tarjeta.innerHTML = `
+          const est = calcularEstado(c);
+          const btnAccion = est === 'Libre'   ? 'Ocupado'
+                         : est === 'Ocupado'  ? 'Reservado'
+                                               : 'Liberar';
+          const textoBtn = est === 'Libre'   ? 'Marcar Ocupado'
+                         : est === 'Ocupado'  ? 'Reservar'
+                                               : 'Liberar';
+          const div = document.createElement('div');
+          div.className = `consultorio ${est.toLowerCase()}`;
+          div.innerHTML = `
             <h2>Consultorio ${c.Consultorio}</h2>
-            <p><strong>Estado:</strong> ${estado}</p>
-            <p><strong>Ocupado por:</strong> ${c.OcupadoPor || '-'}</p>
-            <p><strong>Última actualización:</strong> ${
+            <p><strong>Estado:</strong> ${est}</p>
+            <p><strong>Ocupado por:</strong> ${c.OcupadoPor||'-'}</p>
+            <p><strong>Última:</strong> ${
               c.ÚltimaActualización
                 ? new Date(c.ÚltimaActualización).toLocaleString()
                 : '-'
             }</p>
-            <button onclick="actualizarEstado(
-               ${c.Consultorio},
-               '${estado === 'Libre' ? 'Ocupado'
-                 : estado === 'Ocupado'  ? 'Reservado'
-                                         : 'Liberar'}'
-            )">
-              ${estado === 'Libre' ? 'Marcar Ocupado'
-               : estado === 'Ocupado'  ? 'Reservar'
-                                       : 'Liberar'}
+            <button onclick="actualizarEstado(${c.Consultorio}, '${btnAccion}')">
+              ${textoBtn}
             </button>
           `;
-          cont.appendChild(tarjeta);
+          cont.appendChild(div);
         });
-
-        document.getElementById('mensaje').textContent = '';
-      } catch (err) {
-        console.error(err);
-        document.getElementById('mensaje').textContent = 'Error cargando datos.';
-      }
+      };
+      const s = document.createElement('script');
+      s.src = `${API_URL}?callback=listCB`;
+      document.body.appendChild(s);
     }
 
-    // Solicita persona y horario, y envía el POST
-    async function actualizarEstado(num, nuevoEstado) {
-      const persona = prompt(`¿Quién cambia el estado a ${nuevoEstado}?`);
+    // JSONP para actualizar
+    function actualizarEstado(num, nuevoEstado) {
+      const persona = prompt(`¿Quién pone "${nuevoEstado}"?`);
       if (!persona) return;
-
       let horario = '';
       if (nuevoEstado !== 'Liberar') {
-        horario = prompt('¿En qué horario? (ej. 16:00-17:00)');
+        horario = prompt('¿Horario? (ej. 16:00-17:00)');
         if (!horario) return;
       }
-
-      try {
-        const res    = await fetch(API_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            Consultorio: num,
-            Tipo:        nuevoEstado,
-            OcupadoPor:  persona,
-            Horario:     horario
-          })
-        });
-        const result = await res.json();
-        if (!result.success) {
-          alert('Error: ' + result.error);
-        } else {
-          cargarConsultorios();
-        }
-      } catch (err) {
-        console.error(err);
-        alert('No se pudo enviar la petición.');
-      }
+      window.updateCB = function(res) {
+        if (!res.success) alert('Error: ' + res.error);
+        cargarConsultorios();
+      };
+      const params = [
+        `callback=updateCB`,
+        `Consultorio=${num}`,
+        `Tipo=${encodeURIComponent(nuevoEstado)}`,
+        `OcupadoPor=${encodeURIComponent(persona)}`,
+        `Horario=${encodeURIComponent(horario)}`
+      ].join('&');
+      const s = document.createElement('script');
+      s.src = `${API_URL}?${params}`;
+      document.body.appendChild(s);
     }
 
-    // Al iniciar la página
     window.addEventListener('DOMContentLoaded', () => {
       document.getElementById('mensaje').textContent = 'Cargando…';
       cargarConsultorios();
