@@ -35,8 +35,7 @@
     const div = document.createElement('div');
     const estado = calcularEstado(consultorio) || 'Libre';
     div.className = 'consultorio ' + estado.toLowerCase();
-    const mostrar = tipo => (consultorio[tipo + 'Horarios'] || '').split(/
-|, */).filter(x => x.trim()).map(h => `<li>${h}</li>`).join('');
+    const mostrar = tipo => (consultorio[tipo + 'Horarios'] || '').split(/|, */).filter(x => x.trim()).map(h => `<li>${h}</li>`).join('');
     div.innerHTML = `
       <h3>Consultorio ${consultorio.Consultorio}</h3>
       <p>Estado: ${estado}</p>
