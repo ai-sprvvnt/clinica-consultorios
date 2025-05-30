@@ -2,88 +2,192 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Consultorios (JSONP)</title>
+  <title>Gestión de Consultorios</title>
   <link rel="stylesheet" href="style.css">
-  <script>
-    const API_URL = 'https://script.google.com/macros/s/AKfycbwBBGfDXkPizYzt_wr6sDnhEUPyyw4FvdhBv1yKhlf5tNYmrt4VMe86mAn_451NUTHiiQ/exec';
-
-    function calcularEstado(c) {
-      if ((c.ReservadoHorarios||'').trim()) return 'Reservado';
-      if ((c.OcupadoHorarios ||'').trim()) return 'Ocupado';
-      return 'Libre';
-    }
-
-    // JSONP para listar
-    function cargarConsultorios() {
-      window.listCB = function(data) {
-        document.getElementById('mensaje').textContent = '';
-        const cont = document.getElementById('lista');
-        cont.innerHTML = '';
-        data.forEach(c => {
-          const est = calcularEstado(c);
-          const btnAccion = est === 'Libre'   ? 'Ocupado'
-                         : est === 'Ocupado'  ? 'Reservado'
-                                               : 'Liberar';
-          const textoBtn = est === 'Libre'   ? 'Marcar Ocupado'
-                         : est === 'Ocupado'  ? 'Reservar'
-                                               : 'Liberar';
-          const div = document.createElement('div');
-          div.className = `consultorio ${est.toLowerCase()}`;
-          div.innerHTML = `
-            <h2>Consultorio ${c.Consultorio}</h2>
-            <p><strong>Estado:</strong> ${est}</p>
-            <p><strong>Ocupado por:</strong> ${c.OcupadoPor||'-'}</p>
-            <p><strong>Última:</strong> ${
-              c.ÚltimaActualización
-                ? new Date(c.ÚltimaActualización).toLocaleString()
-                : '-'
-            }</p>
-            <button onclick="actualizarEstado(${c.Consultorio}, '${btnAccion}')">
-              ${textoBtn}
-            </button>
-          `;
-          cont.appendChild(div);
-        });
-      };
-      const s = document.createElement('script');
-      s.src = `${API_URL}?callback=listCB`;
-      document.body.appendChild(s);
-    }
-
-    // JSONP para actualizar
-    function actualizarEstado(num, nuevoEstado) {
-      const persona = prompt(`¿Quién pone "${nuevoEstado}"?`);
-      if (!persona) return;
-      let horario = '';
-      if (nuevoEstado !== 'Liberar') {
-        horario = prompt('¿Horario? (ej. 16:00-17:00)');
-        if (!horario) return;
-      }
-      window.updateCB = function(res) {
-        if (!res.success) alert('Error: ' + res.error);
-        cargarConsultorios();
-      };
-      const params = [
-        `callback=updateCB`,
-        `Consultorio=${num}`,
-        `Tipo=${encodeURIComponent(nuevoEstado)}`,
-        `OcupadoPor=${encodeURIComponent(persona)}`,
-        `Horario=${encodeURIComponent(horario)}`
-      ].join('&');
-      const s = document.createElement('script');
-      s.src = `${API_URL}?${params}`;
-      document.body.appendChild(s);
-    }
-
-    window.addEventListener('DOMContentLoaded', () => {
-      document.getElementById('mensaje').textContent = 'Cargando…';
-      cargarConsultorios();
-    });
-  </script>
+  <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 <body>
   <h1>Estado de Consultorios</h1>
-  <div id="mensaje"></div>
-  <div id="lista" class="grid"></div>
+  <div id="consultorios" class="grid"></div>
+
+  <script>
+    const API_URL = 'https://script.google.com/macros/s/AKfycbyjIsv-kp3WtlRs9WFyapI3ry0E3i1puhwAOf7XAH52kOJHjEwMMcsHvWx3TP39-Z72Sw/exec'; // Reemplaza con tu URL real
+
+    function formatoHora12(date) {
+      let horas = date.getHours();
+      const minutos = date.getMinutes();
+      const ampm = horas >= 12 ? 'PM' : 'AM';
+      horas = horas % 12;
+      horas = horas ? horas : 12;
+      const minutosStr = minutos < 10 ? '0' + minutos : minutos;
+      return `${horas.toString().padStart(2, '0')}:${minutosStr} ${ampm}`;
+    }
+
+    function convertirHorario24a12(horario24) {
+      const partes = horario24.split('-');
+      if (partes.length !== 2) return horario24;
+
+      const [inicio, fin] = partes.map(p => p.trim());
+      const [h1, m1] = inicio.split(':').map(Number);
+      const [h2, m2] = fin.split(':').map(Number);
+
+      const d1 = new Date(); d1.setHours(h1, m1, 0);
+      const d2 = new Date(); d2.setHours(h2, m2, 0);
+
+      return `${formatoHora12(d1)} - ${formatoHora12(d2)}`;
+    }
+
+    async function cargarConsultorios() {
+      const container = document.getElementById('consultorios');
+      container.innerHTML = '<p>Cargando...</p>';
+
+      try {
+        const res = await fetch(API_URL);
+        const data = await res.json();
+
+        container.innerHTML = '';
+        for (const item of data) {
+        const estado = item.Estado?.toLowerCase() || 'libre';
+
+        // Comprobación de auto-liberación
+        if (estado === 'ocupado' && item.OcupadoHorarios) {
+            const partes = item.OcupadoHorarios.split('-');
+            if (partes.length === 2) {
+            const horaFinStr = partes[1].trim(); // Ej. "16:00"
+            const [h, m] = horaFinStr.split(':').map(Number);
+            const fin = new Date();
+            fin.setHours(h, m, 0, 0);
+
+            const ahora = new Date();
+            if (ahora > fin) {
+                // El horario expiró, liberar automáticamente
+                await enviarEstado(item.Consultorio, 'Libre', '', '');
+                continue; // Saltar la renderización para que recargue limpio
+            }
+            }
+        }
+
+        const card = document.createElement('div');
+        card.className = `card ${estado}`;
+
+        let fechaTexto = '-';
+        if (item.ÚltimaActualización) {
+            const fecha = new Date(item.ÚltimaActualización);
+            const fechaLocal = fecha.toLocaleDateString();
+            const horaLocal = formatoHora12(fecha);
+            fechaTexto = `${fechaLocal} ${horaLocal}`;
+        }
+
+        let horario = item.OcupadoHorarios || item.ReservadoHorarios || '-';
+        if (horario.includes(':') && horario.includes('-')) {
+            horario = convertirHorario24a12(horario);
+        }
+
+        let botonesHTML = `
+            <button onclick="ocuparConsultorio(${item.Consultorio})">
+            <i data-lucide="user-check"></i> Ocupar
+            </button>
+            <button onclick="reservarConsultorio(${item.Consultorio})">
+            <i data-lucide="calendar-plus"></i> Reservar
+            </button>
+        `;
+
+        if (estado !== 'libre') {
+            botonesHTML += `
+            <button onclick="liberarConsultorio(${item.Consultorio})">
+                <i data-lucide="x-circle"></i> Liberar
+            </button>`;
+        }
+
+        card.innerHTML = `
+            <h2>Consultorio ${item.Consultorio}</h2>
+            <p><strong>Estado:</strong> ${item.Estado || 'Libre'}</p>
+            <p><strong>Ocupado por:</strong> ${item.OcupadoPor || '-'}</p>
+            <p><strong>Última actualización:</strong> ${fechaTexto}</p>
+            <p><strong>Horario:</strong> ${horario}</p>
+            <div class="botones">${botonesHTML}</div>
+        `;
+
+        container.appendChild(card);
+        }
+
+        lucide.createIcons(); // Renderizar íconos
+
+      } catch (err) {
+        container.innerHTML = '<p>Error al cargar datos.</p>';
+        console.error(err);
+      }
+    }
+
+    async function ocuparConsultorio(num) {
+      const persona = prompt('¿Quién va a ocupar el consultorio?');
+      if (!persona) return;
+
+      const horas = prompt('¿Por cuántas horas? (1, 2 o 3)');
+      const duracion = parseInt(horas);
+      if (![1, 2, 3].includes(duracion)) {
+        alert('Duración inválida. Usa 1, 2 o 3.');
+        return;
+      }
+
+      const ahora = new Date();
+      const inicioRedondeado = new Date(ahora);
+      inicioRedondeado.setMinutes(0, 0, 0);
+
+      const fin = new Date(inicioRedondeado.getTime() + duracion * 60 * 60 * 1000);
+
+      const hIni = inicioRedondeado.toTimeString().slice(0, 5);
+      const hFin = fin.toTimeString().slice(0, 5);
+      const horario = `${hIni} - ${hFin}`;
+
+      await enviarEstado(num, 'Ocupado', persona, horario);
+    }
+
+    async function reservarConsultorio(num) {
+      const persona = prompt('¿Quién va a reservar el consultorio?');
+      if (!persona) return;
+
+      const horario = prompt('¿Horario a reservar? (formato HH:mm - HH:mm)');
+      const horarioRegex = /^([01]\d|2[0-3]):[0-5]\d\s*-\s*([01]\d|2[0-3]):[0-5]\d$/;
+
+      if (!horarioRegex.test(horario.trim())) {
+        alert('Formato inválido. Usa HH:mm - HH:mm');
+        return;
+      }
+
+      await enviarEstado(num, 'Reservado', persona, horario.trim());
+    }
+
+    async function liberarConsultorio(num) {
+      await enviarEstado(num, 'Libre', '', '');
+    }
+
+    async function enviarEstado(num, estado, persona, horario) {
+      try {
+        const response = await fetch(API_URL, {
+          method: 'POST',
+          body: JSON.stringify({
+            Consultorio: num,
+            Estado: estado,
+            OcupadoPor: persona,
+            Horario: horario
+          })
+        });
+
+        const result = await response.json();
+        if (!result.success) {
+          alert('Error al actualizar: ' + result.error);
+        } else {
+          cargarConsultorios();
+        }
+
+      } catch (e) {
+        alert('Error de red al actualizar');
+        console.error(e);
+      }
+    }
+
+    cargarConsultorios();
+  </script>
 </body>
 </html>

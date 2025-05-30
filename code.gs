@@ -1,19 +1,16 @@
-// Code.gs (Google Apps Script)
 const SHEET_NAME = 'Consultorios';
 
 function doGet() {
-  const sheet   = SpreadsheetApp
-                    .getActiveSpreadsheet()
-                    .getSheetByName(SHEET_NAME);
-  const rows    = sheet.getDataRange().getValues();
-  const headers = rows.shift();  // primera fila como cabeceras
-
-  const result = rows.map(r => {
-    const obj = {};
-    headers.forEach((h,i) => obj[h] = r[i]);
-    return obj;
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
+  const data = sheet.getDataRange().getValues();
+  
+  const headers = data.shift();
+  const result = data.map(row => {
+    const entry = {};
+    headers.forEach((key, i) => entry[key] = row[i]);
+    return entry;
   });
-
+  
   return ContentService
     .createTextOutput(JSON.stringify(result))
     .setMimeType(ContentService.MimeType.JSON);
@@ -21,63 +18,80 @@ function doGet() {
 
 function doPost(e) {
   try {
-    const payload   = JSON.parse(e.postData.contents);
-    const consult   = parseInt(payload.Consultorio, 10);
-    const tipo      = payload.Tipo;         // 'Ocupado', 'Reservado' o 'Liberar'
-    const persona   = payload.OcupadoPor || '';
-    const horario   = payload.Horario   || '';
-    const fecha     = new Date();
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName('Consultorios');
+    const payload = JSON.parse(e.postData.contents);
 
-    const ss        = SpreadsheetApp.getActiveSpreadsheet();
-    const sheet     = ss.getSheetByName(SHEET_NAME);
-    const allValues = sheet.getDataRange().getValues();
-    const headers   = allValues[0];
-    const lastRow   = sheet.getLastRow();
-    const fila      = consult + 1;          // +1 para contar cabecera
+    const timestamp = new Date();
+    const consultorio = parseInt(payload.Consultorio);
+    const fila = consultorio + 1;
 
-    if (fila < 2 || fila > lastRow) {
-      throw new Error('Consultorio no válido');
+    const lastRow = sheet.getLastRow();
+    if (fila > lastRow) throw new Error('Consultorio no existe');
+
+    sheet.getRange(fila, 2).setValue(payload.Estado);
+    sheet.getRange(fila, 3).setValue(payload.OcupadoPor);
+    sheet.getRange(fila, 4).setValue(timestamp);
+
+    if (payload.Estado === 'Ocupado') {
+      sheet.getRange(fila, 5).setValue(payload.Horario);  // OcupadoHorarios
+      sheet.getRange(fila, 6).setValue('');               // Limpia ReservadoHorarios
+    } else if (payload.Estado === 'Reservado') {
+      sheet.getRange(fila, 5).setValue('');               // Limpia OcupadoHorarios
+      sheet.getRange(fila, 6).setValue(payload.Horario);  // ReservadoHorarios
+    } else if (payload.Estado === 'Libre') {
+      sheet.getRange(fila, 5).setValue('');
+      sheet.getRange(fila, 6).setValue('');
     }
 
-    // Encuentra las columnas por nombre
-    const col = name =>
-      headers.indexOf(name) + 1;
+    return ContentService.createTextOutput(JSON.stringify({ success: true }))
+      .setMimeType(ContentService.MimeType.JSON);
 
-    const colPor       = col('OcupadoPor');
-    const colAct       = col('ÚltimaActualización');
-    const colOcupHoras = col('OcupadoHorarios');
-    const colResHoras  = col('ReservadoHorarios');
+  } catch (error) {
+    return ContentService.createTextOutput(JSON.stringify({
+      success: false,
+      error: error.message
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
 
-    if (tipo === 'Liberar') {
-      sheet.getRange(fila, colPor).clearContent();
-      sheet.getRange(fila, colAct).setValue(fecha);
-      sheet.getRange(fila, colOcupHoras).clearContent();
-      sheet.getRange(fila, colResHoras).clearContent();
+
+async function actualizarEstado(num, estado) {
+  const persona = prompt(`¿Quién cambia el estado a ${estado}?`);
+  if (!persona) return;
+
+  let horario = prompt(`¿En qué horario se usará? (ej. 16:00 - 19:00)`);
+  if (!horario) return;
+
+  // Validar formato HH:mm - HH:mm
+  const horarioRegex = /^([01]\d|2[0-3]):[0-5]\d\s*-\s*([01]\d|2[0-3]):[0-5]\d$/;
+  if (!horarioRegex.test(horario.trim())) {
+    alert('Formato inválido. Usa el formato HH:mm - HH:mm (ej. 14:00 - 17:30)');
+    return;
+  }
+
+  try {
+    const response = await fetch(API_URL, {
+      method: 'POST',
+      body: JSON.stringify({
+        Consultorio: num,
+        Estado: estado,
+        OcupadoPor: persona,
+        Horario: horario.trim()
+      })
+    });
+
+    const result = await response.json();
+
+    if (!result.success) {
+      alert('Error al actualizar: ' + (result.error || 'desconocido'));
     } else {
-      const columnaHoras = (tipo === 'Ocupado')
-        ? colOcupHoras
-        : colResHoras;
-      const celda        = sheet.getRange(fila, columnaHoras);
-      const anterior     = celda.getValue();
-      const nuevoValor   = anterior
-        ? anterior + '\n' + horario
-        : horario;
-      celda.setValue(nuevoValor);
-
-      sheet.getRange(fila, colPor).setValue(persona);
-      sheet.getRange(fila, colAct).setValue(fecha);
+      alert('Estado actualizado correctamente');
+      cargarConsultorios();
     }
 
-    return ContentService
-      .createTextOutput(JSON.stringify({ success: true }))
-      .setMimeType(ContentService.MimeType.JSON);
-
-  } catch (err) {
-    return ContentService
-      .createTextOutput(JSON.stringify({
-        success: false,
-        error:   err.message
-      }))
-      .setMimeType(ContentService.MimeType.JSON);
+  } catch (e) {
+    alert('Error de red al actualizar el consultorio');
+    console.error(e);
   }
 }
